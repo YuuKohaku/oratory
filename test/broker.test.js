@@ -72,10 +72,14 @@ describe('MESSAGE BROKER', function () {
 	});
 
 	it('event timestamp get/set', function (done) {
-		broker._updateEventTimestamp('event', function () {
+		var ts;
+		broker._updateEventTimestamp('event', function (err, t) {
+			ts = t;
 			broker._getEventTimestamp('event', function (err, res) {
 				expect(parseInt(res))
 					.to.be.a('Number');
+				expect(parseInt(res))
+					.to.equal(ts);
 				done();
 			})
 		})
@@ -125,5 +129,30 @@ describe('MESSAGE BROKER', function () {
 							done(new Error("Incomplete drain"))
 					})
 			})
+	});
+
+
+	it('command/act', function (done) {
+		var event = 'event-' + _.random(0, 100);
+		var listener = new Broker(redis.createClient());
+		var counter = 0,
+			max = 10,
+			timer = null;
+
+		listener.act(event, function (msg) {
+			if (counter == max) {
+				clearInterval(timer);
+				listener.end();
+				done();
+			}
+		});
+
+		listener.on('subscribe', function () {
+			timer = setInterval(function () {
+				counter++;
+				broker.command(event, counter);
+			}, 50);
+		});
+
 	});
 });

@@ -26,6 +26,16 @@ function Broker(redis_client, identifier) {
 	this._subscriber.on("message", function (topic, message) {
 		self.emit(topic, message);
 	});
+
+	//naming fns collection for metadata
+	this._naming = {
+		list: function (event_name) {
+			return "list-" + event_name;
+		},
+		update: function (event_name) {
+			return "topic-update-" + event_name;
+		}
+	};
 }
 
 util.inherits(Broker, EventEmitter);
@@ -59,8 +69,18 @@ Broker.prototype._updateEventTimestamp = function (event_name, callback) {
 		}
 		var ts = parseInt(redis_ts[0] * 1000 + (redis_ts[1] / 1000) | 0);
 		var stamp = "timestamp-" + event_name;
-		self._publisher.set(stamp, ts, callback);
-		self._publisher.expire(stamp, self._timestamp_expiry);
+
+		async.series([
+		             self._publisher.set.bind(self._publisher, stamp, ts),
+		             self._publisher.expire.bind(self._publisher, stamp, self._timestamp_expiry)
+		             ],
+			function (err, results) {
+				if (err) {
+					callback(err, null);
+					return;
+				}
+				callback(null, ts);
+			});
 	})
 }
 
@@ -94,7 +114,7 @@ Broker.prototype._diffEventTimestamp = function (event_name, callback) {
 		});
 }
 
-//Publish/subscribe
+//Messaging
 Broker.prototype.publish = function (event_name, event_data) {
 	this._publisher.publish(event_name, event_data);
 };
@@ -104,9 +124,44 @@ Broker.prototype.subscribe = function (event_name, callback) {
 	this.on(event_name, callback);
 };
 
-Broker.prototype.act = function () {
+Broker.prototype.unsubscribe = function (event_name, callback) {
+	this._subscriber.unsubscribe(event_name);
+	this.removeAllListeners(event_name);
+};
 
-}
+Broker.prototype.unact = function (event_name) {
+	var notification = this._name("update")(event_name);
+	this.unsubscribe(notification);
+};
+
+
+Broker.prototype.act = function (event_name, callback) {
+	var list = this._name("list")(event_name);
+	var notification = this._name("update")(event_name);
+
+	var sink = this.drainList.bind(this, list, callback);
+
+	this.subscribe(notification, sink);
+	sink();
+};
+
+
+Broker.prototype.command = function (event_name, event_data, callback) {
+	var self = this;
+
+	var list = this._name("list")(event_name);
+	var notification = this._name("update")(event_name);
+
+	async.series([
+	             self._publisher.rpush.bind(this._publisher, list, event_data),
+	             self._updateEventTimestamp.bind(this, event_name)
+	             ],
+		function (err, res) {
+			self._publisher.publish(notification, res[1]);
+			if (callback && callback.constructor == Function) callback();
+		});
+
+};
 
 //util
 Broker.prototype.drainList = function (name, callback, end) {
@@ -128,9 +183,12 @@ Broker.prototype.drainList = function (name, callback, end) {
 			cb(null, res);
 		});
 	}, function (err, res) {
-		if (end && end.constructor === Function) end(err, res);
+		if (end && end.constructor == Function) end(err, res);
 	});
+};
 
+Broker.prototype._name = function (category) {
+	return this._naming[category];
 };
 
 module.exports = Broker;
