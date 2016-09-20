@@ -33,7 +33,7 @@ Registry.prototype.del = function (entry, callback) {
 	var self = this;
 	this._client.zremrangebyscore([this._list, entry.index, entry.index], function (err, res) {
 		self.notify("left", entry.name);
-		callback(err, res);
+		callback && callback(err, res);
 	});
 };
 

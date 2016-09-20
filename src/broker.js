@@ -22,6 +22,7 @@ function Broker(redis_client, identifier) {
 	this._request_counter = 0;
 	//@NOTE: also should be sufficient for expected load
 	this.request_pool_size = 100000;
+	this._response_timeout = 500;
 
 	//@NOTE an array with predefined size executes a little bit faster
 	this._timeout_pool = Array(this.request_pool_size);
