@@ -2,8 +2,10 @@
 
 var async = require("async");
 
-var Broker = require('./broker.js');
 var Lifesign = require('./lifesigns.js');
+var Bound = require('./bound.js');
+
+var util = require("util");
 
 var LIFESIGN = "speaker-lifesign";
 var BEACON = "speaker-tribune";
@@ -12,20 +14,21 @@ var BEACON_EXPIRY = 10; //s
 var MODE_LISTENER = "listener";
 var MODE_SPEAKER = "speaker";
 
-function Worker(id, client) {
-	this.bus = new Broker(client, id);
+function Worker(id, client, done) {
+	Worker.super_.prototype.constructor.call(this, id, client, done);
+
 	this.lifesign = new Lifesign(client, id, LIFESIGN);
 
 	this.message_interval = 500;
 	this.errorlist = "errors-list";
 	this.topic = "speech";
 
-	this._client = client;
-	this._id = id;
 	this._timer = null;
 
 	this.setMode(MODE_LISTENER);
 }
+
+util.inherits(Worker, Bound);
 
 //configuration
 Worker.prototype.configure = function (p_name, p_val) {
@@ -59,6 +62,8 @@ Worker.prototype._isSpeaker = function () {
 Worker.prototype._processMode = function () {
 	if (!this._isStopped()) {
 		if (this._isSpeaker()) {
+			console.log("taking the tribune: ", this._id);
+			clearInterval(this._timer);
 			this._timer = setInterval(this.sendMessage.bind(this), this.message_interval);
 			this.lifesign.signalingMode();
 			this.bus.unact(this.topic);
@@ -72,9 +77,10 @@ Worker.prototype._processMode = function () {
 
 Worker.prototype._processSpeakerStatus = function (status, callback) {
 	if (status == true) {
-		console.log("speaker is alive");
+		console.log("speaker is alive:", this._id);
 		return;
 	} else {
+		console.log("speaker is dead:", this._id);
 		this.tryToSpeak(callback);
 	}
 }
@@ -83,7 +89,6 @@ Worker.prototype.tryToSpeak = function (callback) {
 	var self = this;
 	if (!this._isStopped()) {
 		this._client.incr(BEACON, function (err, res) {
-			console.log(err, res);
 			//@NOTE the only way it could fail is to lose redis connection
 			if (err)
 				return;
@@ -93,12 +98,12 @@ Worker.prototype.tryToSpeak = function (callback) {
 			self.setMode(MODE_SPEAKER);
 			async.series([
 				             self._client.expire.bind(self._client, BEACON, BEACON_EXPIRY),
-				             self.lifesign.signal.bind(self),
-				             self.getAttention.bind(self),
-				             self._client.del.bind(self._client, BEACON)
+				             self.lifesign.signal.bind(self.lifesign),
+				             self.getAttention.bind(self)
   	           ],
 				function (err, res) {
 					console.log("TRYING TO SPEAK", err, res);
+					self._client.del(BEACON)
 				});
 		});
 	}
@@ -109,18 +114,14 @@ Worker.prototype.getAttention = function () {
 }
 
 //lifecycle
-Worker.prototype.start = function (callback) {
-	this._processMode();
-	callback(true);
-}
-
 Worker.prototype.end = function (callback) {
+	console.log("WORKER END");
 	this._stopped = true;
 	clearInterval(this._timer);
 	this.bus.end();
 	this.lifesign.end();
 	this._client.quit();
-	callback();
+	callback && callback();
 }
 
 Worker.prototype._isStopped = function () {

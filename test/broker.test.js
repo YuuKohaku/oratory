@@ -8,14 +8,18 @@ var Broker = require("../src/broker.js");
 
 describe('MESSAGE BROKER', function () {
 	var broker, client;
+	client = redis.createClient();
 
 	beforeEach(function () {
-		client = redis.createClient();
-		broker = new Broker(client, process.pid);
+		broker = new Broker(client, "test");
 	})
 
 	afterEach(function () {
 		broker.end();
+	})
+
+	before(function (done) {
+		client.flushall(done)
 	})
 
 	it('inherits EventEmitter', function () {
@@ -63,8 +67,9 @@ describe('MESSAGE BROKER', function () {
 		_.forEach(listeners, function (listener) {
 			listener.subscribe(topic, process);
 			listener.on("subscribe", function (evname) {
+				if (evname != topic) return;
 				sub_counter++;
-				if (sub_counter == len && evname == topic)
+				if (sub_counter == len)
 					broker.publish(topic, msg);
 			});
 		})
@@ -133,6 +138,7 @@ describe('MESSAGE BROKER', function () {
 
 
 	it('command/act', function (done) {
+		this.timeout(10000)
 		var event = 'event-' + _.random(0, 100);
 		var listener = new Broker(redis.createClient());
 		var counter = 0,
@@ -147,12 +153,28 @@ describe('MESSAGE BROKER', function () {
 			}
 		});
 
-		listener.on('subscribe', function () {
+		listener.on('subscribe', function (topic) {
+			if (topic != broker._name("update")(event)) return;
 			timer = setInterval(function () {
 				counter++;
 				broker.command(event, counter);
 			}, 50);
 		});
 
+	});
+
+	it('request/do', function (done) {
+		var receiver = new Broker(redis.createClient(), 'recv');
+
+		receiver.do('123', function (data, reply) {
+			reply(null, 123 + data);
+		});
+
+		broker.request("recv", "123", 888, function (err, res) {
+			expect(res)
+				.to.be.equal(1011);
+			receiver.end();
+			done();
+		})
 	});
 });
