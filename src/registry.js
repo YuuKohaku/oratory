@@ -19,13 +19,22 @@ Registry.prototype.add = function (id, callback) {
 		self._index = cnt;
 		self._client.zadd(self._list, self._index, id,
 			function (err, res) {
+				self.notify("joined", id);
 				callback(err, self._index);
 			});
 	});
 }
 
-Registry.prototype.del = function (index, callback) {
-	this._client.zremrangebyscore([this._list, index, index], callback);
+Registry.prototype.getScore = function (index, callback) {
+	return this._index;
+};
+
+Registry.prototype.del = function (entry, callback) {
+	var self = this;
+	this._client.zremrangebyscore([this._list, entry.index, entry.index], function (err, res) {
+		self.notify("left", entry.name);
+		callback(err, res);
+	});
 };
 
 Registry.prototype.getPrevious = function (callback) {
@@ -59,10 +68,30 @@ Registry.prototype.getLast = function (callback) {
 	this._client.zrevrangebyscore([this._list, '+inf', 0, 'WITHSCORES', 'LIMIT', 0, 1],
 		function (err, res) {
 			var data = self._entry(res);
-			var res = data.index == self._id ? null : data;
-			callback(err, res);
+			var response = data.index == self._id ? null : data;
+			callback(err, response);
 		});
 };
 
+Registry.prototype.getList = function (callback) {
+	var self = this;
+	this._client.zrevrangebyscore([this._list, '+inf', '-inf', 'WITHSCORES'],
+		function (err, res) {
+			var len = res.length;
+			var data = [];
+			for (var i = 0; i < len; i += 2) {
+				data.push(self._entry([res[i], res[i + 1]]));
+			}
+			callback(err, data);
+		});
+};
+
+Registry.prototype.getNotificationEvent = function (event_name) {
+	return this._list + '-' + event_name;
+}
+
+Registry.prototype.notify = function (event_name, data) {
+	this._client.publish(this.getNotificationEvent(event_name), data);
+};
 
 module.exports = Registry;

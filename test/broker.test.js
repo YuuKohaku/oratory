@@ -97,10 +97,10 @@ describe('MESSAGE BROKER', function () {
 		broker._updateEventTimestamp(evname, function () {
 			setTimeout(function () {
 				broker._diffEventTimestamp(evname, function (err, res) {
-					//10 ms deviation is supposed to be acceptable in this case
+					//15 ms deviation is supposed to be acceptable in this case
 					expect(res)
 						.to.satisfy(function (num) {
-							return num > to - 10 && num < to + 10;
+							return num > to - 15 && num < to + 15;
 						});
 					done();
 				});

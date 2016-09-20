@@ -18,6 +18,7 @@
   "homepage": "https://github.com/YuuKohaku/talkative#readme",
   "dependencies": {
     "async": "^2.0.1",
+    "gulp-nodemon": "^2.1.0",
     "gulp-plumber": "^1.1.0",
     "minimist": "^1.2.0",
     "redis": "^2.6.2",

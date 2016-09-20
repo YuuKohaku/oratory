@@ -1,6 +1,6 @@
 'use strict';
 
-//simple module for monitoring leader signal (monitoringMode) or emitting it (signalingMode)
+//@NOTE: simple module for monitoring leader signal (monitoringMode) or emitting it (signalingMode)
 
 var async = require('async');
 
@@ -59,7 +59,6 @@ Lifesign.prototype.signal = function (callback) {
 		    	self._client.expire.bind(self._client, self._key, self.mark_expiration)
 		    ],
 			function (err, results) {
-				console.log("ALIVE", err, results);
 				if (err) {
 					callback && callback(err, null);
 					return;
@@ -71,7 +70,7 @@ Lifesign.prototype.signal = function (callback) {
 
 
 Lifesign.prototype.monitor = function (callback) {
-	this._client.exists(this._key, function (res) {
+	this._client.exists(this._key, function (err, res) {
 		callback(!!res);
 	});
 }

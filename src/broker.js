@@ -1,7 +1,7 @@
 'use strict';
 
-//message broker abstraction on top of redis
-//one instance per thread
+//@NOTE: message broker abstraction on top of redis
+//@NOTE: one instance per thread
 
 var EventEmitter = require('events');
 var util = require('util');
@@ -10,18 +10,19 @@ var async = require('async');
 
 var errors = require("./errors.js");
 
-//@TODO: set maxlistenrs outside
+//@TODO: set maxlisteners outside
 
 function Broker(redis_client, identifier) {
 	this._publisher = redis_client;
 	this._subscriber = redis_client.duplicate();
 	this._identifier = identifier;
-
-	this._timestamp_expiry = 600; // 10 minutes by default
-	this._response_timeout = 5000; //five seconds should be sufficient or something wrong with redis pub/sub
+	// @NOTE:10 minutes by default
+	this._timestamp_expiry = 600;
+	//@NOTE:five seconds should be sufficient or something wrong with redis pub/sub	this._response_timeout = 5000;
 	this._request_counter = 0;
+	//@NOTE: also should be sufficient for expected load
+	this.request_pool_size = 100000;
 
-	this.request_pool_size = 100000; //also should be sufficient for expected load
 	//@NOTE an array with predefined size executes a little bit faster
 	this._timeout_pool = Array(this.request_pool_size);
 	this._request_pool = Array(this.request_pool_size);
@@ -36,7 +37,7 @@ function Broker(redis_client, identifier) {
 		self.emit(topic, message);
 	});
 
-	//naming fns collection for metadata
+	//@NOTE:naming fns collection for metadata
 	this._naming = {
 		list: function (event_name) {
 			return "list-" + event_name;
@@ -135,7 +136,7 @@ Broker.prototype._diffEventTimestamp = function (event_name, callback) {
 		});
 }
 
-//Messaging
+//messaging patterns
 Broker.prototype.publish = function (event_name, event_data) {
 	this._publisher.publish(event_name, event_data);
 };
