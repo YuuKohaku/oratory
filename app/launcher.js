@@ -8,7 +8,7 @@ var redis = require('redis');
 var child_process = require('child_process');
 var readline = require("readline");
 
-var Broker = require('../src/Broker.js');
+var Broker = require('../src/broker.js');
 
 var client = redis.createClient();
 var bus = new Broker(client, 'master');
