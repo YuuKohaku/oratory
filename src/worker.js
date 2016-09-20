@@ -60,7 +60,7 @@ Worker.prototype.setWaiting = function (p_val) {
 Worker.prototype._processMode = function () {
 	if (!this._isStopped()) {
 		if (this._isSpeaker()) {
-			console.log("taking the tribune: ", this._id);
+			// console.log("taking the tribune: ", this._id);
 			clearInterval(this._timer);
 			this._timer = setInterval(this.sendMessage.bind(this), this.message_interval);
 			this.lifesign.signalingMode();
@@ -75,10 +75,10 @@ Worker.prototype._processMode = function () {
 
 Worker.prototype._processSpeakerStatus = function (status, callback) {
 	if (status == true) {
-		console.log("speaker is alive:", this._id);
+		// console.log("speaker is alive:", this._id);
 		return;
 	} else {
-		console.log("speaker is dead:", this._id);
+		// console.log("speaker is dead:", this._id);
 		if (!this._isWaiting())
 			this.tryToSpeak(callback);
 	}
@@ -134,4 +134,9 @@ Worker.prototype.acknowledge = function (speaker_score, callback) {
 	callback(null, this._isWaiting());
 }
 
+Worker.prototype.end = function (done) {
+	clearInterval(this._timer);
+	this.lifesign.end();
+	Worker.super_.prototype.end.call(this, done);
+}
 module.exports = Worker;

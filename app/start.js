@@ -4,7 +4,7 @@ var minimist = require('minimist');
 var _ = require('underscore');
 var redis = require('redis');
 
-var Worker = require('./worker.js');
+var Worker = require('../src/worker.js');
 
 var args = minimist(process.argv.slice(2));
 var id = args.id || process.pid + Date.now(); //@NOTE: suppose this is quite unique
@@ -23,6 +23,7 @@ worker.messageGenerator(function () {
 	return this.cnt++;
 });
 worker.onMessage(function (msg, callback) {
+
 	function onComplete() {
 		var error = Math.random() > 0.85;
 		callback(error, msg);

@@ -12,6 +12,8 @@ function BasicWorker(id, client) {
 
 	this._client = client;
 	this._id = id;
+
+	this.bus.do('die', this.die.bind(this));
 }
 
 //configuration
@@ -34,13 +36,13 @@ BasicWorker.prototype.onMessage = function (callback) {
 
 //lifecycle
 BasicWorker.prototype.end = function (callback) {
-	console.log("WORKER END");
+	var self = this;
 	this._stopped = true;
-	clearInterval(this._timer);
 	this.bus.end();
-	this.lifesign.end();
-	this._client.quit();
-	callback && callback();
+	this.registry.del(this.identify(), function (err, res) {
+		self._client.quit();
+		callback && callback(err, res);
+	});
 }
 
 BasicWorker.prototype._isStopped = function () {
@@ -65,6 +67,14 @@ BasicWorker.prototype._generateMessage = function () {
 	return this._messageGenerator();
 }
 
+//registry support
+BasicWorker.prototype.identify = function () {
+	return {
+		index: this.registry.getScore(),
+		name: this._id
+	};
+}
+
 //error messages fns
 BasicWorker.prototype.listErrors = function (callback) {
 	var errlist = [];
@@ -81,4 +91,10 @@ BasicWorker.prototype.errorHandler = function (err, msg) {
 	this._client.rpush(this.errorlist, msg);
 }
 
+BasicWorker.prototype.die = function (callback) {
+	this.end(function (err, res) {
+		callback && callback(err, res);
+		process.exit();
+	});
+}
 module.exports = BasicWorker;
